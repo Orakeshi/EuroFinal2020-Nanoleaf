@@ -14,13 +14,15 @@ teamOneScore = 1
 teamTwoScore = 1
 inputUrl = False
 
-def checkScore():
-    global teamOneScore, url
-    global teamTwoScore
+# -*- coding: utf-8 -*-
+"""
+Validates that the URL is from sportinglife website and is valid
+"""
+def urlValidation():
     global inputUrl
 
     # If URL has not been entered-> Input email
-    if inputUrl != True:
+    if not inputUrl:
         url = input("Please enter url of game to listen for: ")
 
         # If URL is not from website Sportinglife, make user try again
@@ -32,12 +34,22 @@ def checkScore():
 
         else:
             inputUrl = True
+            return
+
+# -*- coding: utf-8 -*-
+"""
+Checks score from sportinglife website via BS4
+"""
+def checkScore():
+    global teamOneScore, url
+    global teamTwoScore
+    global inputUrl
+
+    urlValidation()
 
     # If site is accepted -> Request Site HTML data
     response = requests.get(url)
-
     html_soup = BeautifulSoup(response.text, 'html.parser')
-
     type(html_soup)
 
     # Get Score & Teams from HTML
@@ -57,20 +69,16 @@ def checkScore():
         return
 
     # If Team one has scored -> Get nanoleaf layout
-    if (int(teamOne) == teamOneScore):
-        checkScore.teamScored = teamsPlaying[0].text
-        teamOneScore += 1
-        GetLayout()
+    if int(teamOne) == teamOneScore:
+        teamHasScored(teamsPlaying[0], "1")
         return
 
     # If Team two has scored -> Get nanoleaf layout
-    elif (int(teamTwo) == teamTwoScore):
-        checkScore.teamScored = teamsPlaying[1].text
-        teamTwoScore += 1
-        GetLayout()
+    elif int(teamTwo) == teamTwoScore:
+        teamHasScored(teamsPlaying[1], "2")
         return
 
-    # If no one has scored, re run function
+    # If no one has scored, re-run function
     else:
         time.sleep(1)
         checkScore()
@@ -78,11 +86,26 @@ def checkScore():
 
 # -*- coding: utf-8 -*-
 """
+Handles checking if a team has scored
+Calls GetLayout when they have scored
+"""
+def teamHasScored(teamScored, teamNumber):
+    checkScore.teamScored = teamScored.text
+
+    if teamNumber == "1":
+        teamOneScore += 1
+    else:
+        teamTwoScore += 1
+    getLayout()
+
+
+# -*- coding: utf-8 -*-
+"""
 Method is responsible for getting ID from the nanoleaves.
 The Ids are fetched by iterating through a list of leaves from the network
 A list of the leaf IDs is returned on the method call
 """
-def GetId(layout):
+def getId(layout):
     leafId = []
     for i in range(len(layout)):
         if "panelId" in layout[i]:
@@ -92,14 +115,17 @@ def GetId(layout):
             leafId.append(temp)
     return leafId
 
+
 # -*- coding: utf-8 -*-
 """
 Method handles reading the teams RGB light data.
 The method opens and reads a JSON file with all the teams in the premier league
 """
-def ReadPixelsInFile():
+
+
+def readPixelsInFile():
     global jsonLeafColours
-    leafId = GetId(outputFormat)
+    leafId = getId(outputFormat)
     currentTeamColours = {}
 
     # For all leafs available
@@ -109,7 +135,7 @@ def ReadPixelsInFile():
         # Assign var with name of team that scored
         teamName = checkScore.teamScored
         leafIdNum = str(leafId[i])
-        currentLeafId = leafIdNum.strip("[, ', ]")
+        leafIdNum.strip("[, ', ]")
 
         # Open JSON containing all team names
         path = "teams.json"
@@ -117,7 +143,7 @@ def ReadPixelsInFile():
             teams = json.loads(j.read())
 
         # If team name is in JSON file
-        if (teamName in teams):
+        if teamName in teams:
             # Create Array to temp store colours
             jsonLeafColours = []
 
@@ -133,11 +159,14 @@ def ReadPixelsInFile():
 
     return currentTeamColours
 
+
 # -*- coding: utf-8 -*-
 """
 This method is repsonsible for accessing the layout of the nanoleaves on the network
 """
-def GetLayout():
+
+
+def getLayout():
     global outputFormat
 
     # Send layout request to nanoleaves on network
@@ -147,18 +176,21 @@ def GetLayout():
     # Format output to be acceptable for packetBuilder
     outputFormat = output[output.index('['):]
     outputFormat = outputFormat.split('}')
-    PacketBuilder()
+    packetBuilder()
     return
+
 
 # -*- coding: utf-8 -*-
 """
 This method handles building the data to send to the leaves.
 The leaf data is compiled into one efficient request and sent to the leaves once
 """
-def PacketBuilder():
+
+
+def packetBuilder():
     global numPanels
-    leafId = GetId(outputFormat)
-    teamNanoleafColours = ReadPixelsInFile()
+    leafId = getId(outputFormat)
+    teamNanoleafColours = readPixelsInFile()
 
     f = open("PacketSent.txt", "w")
     animDataList = []
@@ -172,16 +204,16 @@ def PacketBuilder():
         # Display animation for 4 seconds
         timeDisplay = "4"
 
-        animDataNew = currentLeafId + " "+str(len(teamNanoleafColours[i]))+" "
+        animDataNew = currentLeafId + " " + str(len(teamNanoleafColours[i])) + " "
         animDataList.append(animDataNew)
-        
-        # For each RGB value in team values at current ID
-        for x in range (len(teamNanoleafColours[i])):
-            # Setup & Format time, number of panels and colours to send over network
-            animTimeSetup = str(teamNanoleafColours[i][x].rstrip()+" 0 " + timeDisplay +" ")
-            tempRGB = animTimeSetup.replace('\\n', '').replace("|", '').replace(",", '').replace("'", '').replace("[", "").replace("]","").replace("\"", "").replace("\\", "").replace("  ", " ")
 
-            # Add current animation sequnce to list
+        # For each RGB value in team values at current ID
+        for x in range(len(teamNanoleafColours[i])):
+            # Setup & Format time, number of panels and colours to send over network
+            animTimeSetup = str(teamNanoleafColours[i][x].rstrip() + " 0 " + timeDisplay + " ")
+            tempRGB = animTimeSetup.replace('\\n', '').replace("|", '').replace(",", '').replace("'", '').replace("[","").replace("]", "").replace("\"", "").replace("\\", "").replace("  ", " ")
+
+            # Add current animation sequence to list
             animDataList.append(tempRGB)
 
     # Create 1 long string from list
@@ -191,7 +223,7 @@ def PacketBuilder():
     leafColour = ('{"write": {"animData": "' + '{0} {1}'.format(numPanels, str1[:-1]) + '","loop": true,"animType": "custom","palette": [],"version": "2.0","command": "display"}}')
 
     # Send long string to nanoleaves with request
-    newResponse = requests.put("http://" + str(UniversalIP.rstrip()) + ":" + defaultPort + "/api/v1/" + str(UniversalAuthCode.rstrip()) + "/effects", leafColour)
+    requests.put("http://" + str(UniversalIP.rstrip()) + ":" + defaultPort + "/api/v1/" + str(UniversalAuthCode.rstrip()) + "/effects", leafColour)
 
     # Write packet data to text document to spot syntax issues
     f.write(leafColour)
@@ -200,4 +232,4 @@ def PacketBuilder():
     return
 
 checkScore()
-GetLayout()
+getLayout()
